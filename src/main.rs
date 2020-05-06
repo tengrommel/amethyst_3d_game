@@ -1,12 +1,17 @@
 extern crate amethyst;
 use amethyst::{
-    core::transform::Transform,
+    assets::{AssetStorage, Loader, Handle},
+    core::transform::{
+        Transform,
+        TransformBundle
+    },
     // Component is used to attach structs to entities in the game
     ecs::prelude::{Component, DenseVecStorage},
     prelude::*,
     //renderer is used to display a window
     renderer::{
         Camera,
+        ImageFormat, SpriteRender, SpriteSheet, SpriteSheetFormat, Texture,
         plugins::{RenderFlat2D, RenderToWindow},
         types::DefaultBackend,
         RenderingBundle,
@@ -42,17 +47,49 @@ impl Component for LifeForm {
     type Storage = DenseVecStorage<Self>;
 }
 
-fn initialise_lifeforms(world: &mut World) {
+fn initialise_lifeforms(world: &mut World, sprite_sheet: Handle<SpriteSheet>) {
     let mut transform = Transform::default();
     // Correctly position the life form.
     let y = ARENA_HEIGHT / 2.0;
     transform.set_translation_xyz(LIFEFORM_WIDTH*0.5, y, 0.0);
+    // Assign the sprites for the lifeform
+    let sprite_render = SpriteRender {
+        sprite_sheet: sprite_sheet.clone(),
+        sprite_number: 0,
+    };
     // Create a life form entity
     world
         .create_entity()
+        .with(sprite_render.clone())
         .with(LifeForm::new())
         .with(transform)
         .build();
+}
+
+fn load_sprite_sheet(world: &mut World) -> Handle<SpriteSheet> {
+    // Load the sprite sheet necessary to render the graphics.
+    // The texture is the pixel data
+    // `texture_handle` is a cloneable reference to the texture
+    let texture_handle = {
+        // loader is a resource
+        let loader = world.read_resource::<Loader>();
+        // texture storage is a resource
+        let texture_storage = world.read_resource::<AssetStorage<Texture>>();
+        loader.load(
+            "texture/lifeform_sprite.png",
+            ImageFormat::default(),
+            (),
+            &texture_storage,
+        )
+    };
+    let loader = world.read_resource::<Loader>();
+    let sprite_sheet_store = world.read_resource::<AssetStorage<SpriteSheet>>();
+    loader.load(
+        "texture/lifeform_sprite.ron",
+        SpriteSheetFormat(texture_handle),
+        (),
+        &sprite_sheet_store,
+    )
 }
 
 struct GameplayState {
@@ -76,6 +113,9 @@ impl SimpleState for GameplayState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         println!("Number of lifeforms: {}", self.lifeforms);
         let world = data.world;
+        let sprite_sheet_handle = load_sprite_sheet(world);
+        world.register::<LifeForm>();
+        initialise_lifeforms(world, sprite_sheet_handle);
         initialise_camera(world);
     }
 }
@@ -92,8 +132,8 @@ fn main() -> amethyst::Result<()> {
                         .with_clear([0.0, 0.0, 0.0, 1.0]),
                 )
                 .with_plugin(RenderFlat2D::default()),
-        )?;
-
+        )?
+        .with_bundle(TransformBundle::new())?;
     let assets_dir = app_root.join("assets");
     let mut game = Application::new(assets_dir,
                                     GameplayState{lifeforms:0}, game_data)?;
