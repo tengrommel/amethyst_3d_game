@@ -1,6 +1,8 @@
 extern crate amethyst;
 use amethyst::{
     core::transform::Transform,
+    // Component is used to attach structs to entities in the game
+    ecs::prelude::{Component, DenseVecStorage},
     prelude::*,
     //renderer is used to display a window
     renderer::{
@@ -15,6 +17,43 @@ use amethyst::{
 
 pub const ARENA_HEIGHT: f32 = 100.00;
 pub const ARENA_WIDTH: f32 = 100.00;
+
+pub const LIFEFORM_HEIGHT: f32 = 100.00;
+pub const LIFEFORM_WIDTH: f32 = 100.00;
+
+struct LifeForm {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl LifeForm {
+    fn new() -> LifeForm {
+        LifeForm{
+            x: 50.0,
+            y: 50.0,
+            z: 50.0,
+        }
+    }
+}
+
+// By implementing Component for the struct, it can now be attached to entities in the game
+impl Component for LifeForm {
+    type Storage = DenseVecStorage<Self>;
+}
+
+fn initialise_lifeforms(world: &mut World) {
+    let mut transform = Transform::default();
+    // Correctly position the life form.
+    let y = ARENA_HEIGHT / 2.0;
+    transform.set_translation_xyz(LIFEFORM_WIDTH*0.5, y, 0.0);
+    // Create a life form entity
+    world
+        .create_entity()
+        .with(LifeForm::new())
+        .with(transform)
+        .build();
+}
 
 struct GameplayState {
     lifeforms: u8,
